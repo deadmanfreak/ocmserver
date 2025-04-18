@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ID Organizer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-image: url('00.png');
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px 30px;
+    }
+    .header h2 { margin: 0; }
+    .logo { width: 50px; height: 50px; }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    input[type="text"] {
+      margin-bottom: 10px;
+      padding: 6px;
+      width: 80%;
+      font-size: 16px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-height: 500px;
+      overflow-y: auto;
+      display: block;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
+    tr.occupied { background-color: #b2f2bb; }
+    tr.penalty { background-color: #ffa8a8; }
+    button {
+      padding: 4px 8px;
+      margin: 0 2px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .name-input {
+      width: 90%;
+      padding: 3px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>ID Organizer (001 - 0300)</h2>
+    <img src="001.png" alt="Logo" class="logo">
+  </div>
+  <div class="container">
+    <input type="text" id="searchInput" placeholder="Search ID number or name" onkeyup="searchIDs()">
+    <table id="idTable">
+      <thead>
+        <tr>
+          <th>ID Number</th>
+          <th>Owner Name</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <script>
+    const tableBody = document.getElementById('tableBody');
+    let serverData = {};
+
+    fetch('/api/data')
+      .then(res => res.json())
+      .then(data => {
+        serverData = data;
+        buildTable();
+      });
+
+    function buildTable() {
+      for (let i = 1; i <= 300; i++) {
+        const id = String(i).padStart(3, '0');
+        const record = serverData[id] || {};
+        const savedStatus = record.status || '';
+        const savedName = record.name || '';
+
+        const row = document.createElement('tr');
+        row.id = `row-${id}`;
+        if (savedStatus) row.classList.add(savedStatus);
+
+        row.innerHTML = `
+          <td>${id}</td>
+          <td>
+            <input type="text" class="name-input" id="name-${id}" value="${savedName}"
+              placeholder="Enter name" oninput="saveName('${id}')">
+          </td>
+          <td>
+            <button onclick="setStatus('${id}', 'occupied')">Occupied</button>
+            <button onclick="setStatus('${id}', 'penalty')">Penalty</button>
+            <button onclick="restoreRow('${id}')">Restore</button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      }
+    }
+
+    function saveName(id) {
+      const input = document.getElementById(`name-${id}`);
+      const name = input.value;
+      const row = document.getElementById(`row-${id}`);
+      const status = row.classList.value || '';
+      saveToServer(id, name, status);
+    }
+
+    function setStatus(id, status) {
+      const row = document.getElementById(`row-${id}`);
+      row.className = '';
+      row.classList.add(status);
+      const name = document.getElementById(`name-${id}`).value;
+      saveToServer(id, name, status);
+    }
+
+    function restoreRow(id) {
+      const row = document.getElementById(`row-${id}`);
+      row.className = '';
+      const name = document.getElementById(`name-${id}`).value;
+      saveToServer(id, name, '');
+    }
+
+    function saveToServer(id, name, status) {
+      fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name, status })
+      });
+    }
+
+    function searchIDs() {
+      const filter = document.getElementById("searchInput").value.toUpperCase();
+      const rows = tableBody.getElementsByTagName("tr");
+
+      for (let row of rows) {
+        const idCell = row.getElementsByTagName("td")[0];
+        const nameInput = row.getElementsByTagName("input")[0];
+        const idValue = idCell.textContent.toUpperCase();
+        const nameValue = nameInput.value.toUpperCase();
+
+        row.style.display = idValue.includes(filter) || nameValue.includes(filter) ? "" : "none";
+      }
+    }
+  </script>
+</body>
+</html>
